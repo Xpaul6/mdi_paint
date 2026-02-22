@@ -31,6 +31,6 @@
   .main-content {
     display: flex;
     flex-grow: 1;
-    overflow: hidden; /* Prevents overflow */
+    overflow: hidden;
   }
 </style>

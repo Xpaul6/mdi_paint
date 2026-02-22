@@ -2,7 +2,7 @@
   let { close, header, main } = $props();
 </script>
 
-<div class="backdrop" onclick={() => close()}></div>
+<div role="navigation" class="backdrop" onclick={() => close()}></div>
 <div class="modal">
   <header>
     <h2>{header}</h2>
