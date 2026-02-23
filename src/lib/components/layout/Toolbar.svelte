@@ -24,6 +24,46 @@
 		>
 			E
 		</button>
+		<button
+			class="tool-button"
+			class:active={$selectedTool === 'line'}
+			on:click={() => selectTool('line')}
+			title="Line"
+		>
+			L
+		</button>
+		<button
+			class="tool-button"
+			class:active={$selectedTool === 'ellipse'}
+			on:click={() => selectTool('ellipse')}
+			title="Ellipse"
+		>
+			El
+		</button>
+		<button
+			class="tool-button"
+			class:active={$selectedTool === 'fill'}
+			on:click={() => selectTool('fill')}
+			title="Fill"
+		>
+			F
+		</button>
+		<button
+			class="tool-button"
+			class:active={$selectedTool === 'text'}
+			on:click={() => selectTool('text')}
+			title="Text"
+		>
+			T
+		</button>
+		<button
+			class="tool-button"
+			class:active={$selectedTool === 'smiley'}
+			on:click={() => selectTool('smiley')}
+			title="Smiley"
+		>
+	    :)	
+		</button>
 	</div>
 	<div class="settings-group">
 		<div class="setting">
@@ -41,7 +81,7 @@
 <style>
 	.toolbar-container {
 		background-color: var(--color-bg-med);
-		width: 100px;
+		width: 130px;
 		border-right: 1px solid var(--color-border);
 		flex-shrink: 0;
 		padding: 8px;
@@ -52,6 +92,7 @@
 
 	.tool-group {
 		display: flex;
+    flex-wrap: wrap;
 		gap: 8px;
 	}
 

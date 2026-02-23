@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-export type Tool = 'pen' | 'eraser';
+export type Tool = 'pen' | 'eraser' | 'line' | 'ellipse' | 'fill' | 'text' | 'smiley';
 
 export const selectedTool = writable<Tool>('pen');
 export const brushColor = writable('#000000');
