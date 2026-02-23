@@ -4,6 +4,7 @@
 	import { cursorPosition } from '../stores/uiStore';
 	import { BROWSER } from 'esm-env';
 	import { documentStore } from '../stores/documentStore';
+	import { zoomLevel } from '../stores/viewStore';
 	import { tick } from 'svelte';
 
 	let { document }: { document: Document } = $props();
@@ -15,45 +16,66 @@
 	let textInputElement: HTMLInputElement;
 
 	let isDrawing = $state(false);
-	// For pen/eraser
 	let lastX = $state(0);
 	let lastY = $state(0);
-	// For line/ellipse
 	let startX = $state(0);
 	let startY = $state(0);
 
-	// For text tool
 	let isTextToolActive = $state(false);
 	let textInputX = $state(0);
 	let textInputY = $state(0);
 	let textInputValue = $state('');
 
+	function handleResize() {
+		if (!canvasElement || !context || !previewCanvasElement) return;
 
-	// Load initial data and resize canvas
+		const parent = canvasElement.parentElement;
+		if (!parent) return;
+
+		// Preserve content by drawing it to a temporary canvas
+		const tempCanvas = window.document.createElement('canvas');
+		tempCanvas.width = canvasElement.width;
+		tempCanvas.height = canvasElement.height;
+		const tempCtx = tempCanvas.getContext('2d');
+		tempCtx?.drawImage(canvasElement, 0, 0);
+
+		// Resize the canvases
+		const { clientWidth, clientHeight } = parent;
+		canvasElement.width = clientWidth;
+		canvasElement.height = clientHeight;
+		previewCanvasElement.width = clientWidth;
+		previewCanvasElement.height = clientHeight;
+
+		// Restore the content
+		context.drawImage(tempCanvas, 0, 0);
+	}
+
 	$effect(() => {
 		if (canvasElement && previewCanvasElement && BROWSER) {
-			const parent = canvasElement.parentElement;
-			if (parent) {
-				const { clientWidth, clientHeight } = parent;
-				canvasElement.width = clientWidth;
-				canvasElement.height = clientHeight;
-				previewCanvasElement.width = clientWidth;
-				previewCanvasElement.height = clientHeight;
-			}
 			context = canvasElement.getContext('2d', { willReadFrequently: true });
 			previewContext = previewCanvasElement.getContext('2d');
 
-			if (context) {
-				// Fill background
-				context.fillStyle = '#ffffff';
-				context.fillRect(0, 0, canvasElement.width, canvasElement.height);
+			// Set initial size
+			const parent = canvasElement.parentElement;
+			if (parent) {
+				canvasElement.width = parent.clientWidth;
+				canvasElement.height = parent.clientHeight;
+				previewCanvasElement.width = parent.clientWidth;
+				previewCanvasElement.height = parent.clientHeight;
+			}
 
+			// Draw initial content
+			if (context) {
 				if (document.data) {
 					const img = new Image();
 					img.onload = () => {
 						context?.drawImage(img, 0, 0);
 					};
 					img.src = document.data;
+				} else {
+					// For new, blank documents
+					context.fillStyle = '#ffffff';
+					context.fillRect(0, 0, canvasElement.width, canvasElement.height);
 				}
 			}
 		}
@@ -144,8 +166,8 @@
 	function getCoords(e: PointerEvent) {
 		const rect = canvasElement.getBoundingClientRect();
 		return {
-			x: Math.round(e.clientX - rect.left),
-			y: Math.round(e.clientY - rect.top)
+			x: Math.round((e.clientX - rect.left) / $zoomLevel),
+			y: Math.round((e.clientY - rect.top) / $zoomLevel)
 		};
 	}
 
@@ -307,6 +329,8 @@
 	}
 </script>
 
+<svelte:window onresize={handleResize} />
+
 <div class="canvas-wrapper" style="cursor: {$selectedTool === 'smiley' ? 'pointer' : $selectedTool === 'text' ? 'text' : $selectedTool === 'fill' ? 'copy' : ($selectedTool === 'line' || $selectedTool === 'ellipse' ? 'crosshair' : 'default')}">
 	{#if isTextToolActive}
 		<input
@@ -358,4 +382,3 @@
 		z-index: 10;
 	}
 </style>
-

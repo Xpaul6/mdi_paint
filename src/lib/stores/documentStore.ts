@@ -41,7 +41,7 @@ function createDocumentStore() {
 				id: newId,
 				name: getUniqueName(name, state.documents),
 				data: data,
-				isDirty: false
+				isDirty: data === null
 			};
 			return {
 				documents: [...state.documents, newDoc],
@@ -81,7 +81,7 @@ function createDocumentStore() {
 			if (newDocuments.length === 0) {
 				const defaultDocId = crypto.randomUUID();
 				return {
-					documents: [{ id: defaultDocId, name: 'Untitled', data: null, isDirty: false }],
+					documents: [{ id: defaultDocId, name: 'Untitled', data: null, isDirty: true }],
 					activeDocumentId: defaultDocId
 				};
 			}

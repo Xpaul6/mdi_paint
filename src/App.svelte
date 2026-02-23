@@ -4,8 +4,46 @@
   import Toolbar from './lib/components/layout/Toolbar.svelte';
   import Workspace from './lib/components/layout/Workspace.svelte';
 	import AboutModal from './lib/components/AboutModal.svelte';
-	import { isAboutModalOpen } from './lib/stores/uiStore';
+	import { isAboutModalOpen, toolbarPosition } from './lib/stores/uiStore';
+	import { documentStore } from './lib/stores/documentStore';
+	import { selectedTool } from './lib/stores/toolStore';
+
+	function handleKeyDown(e: KeyboardEvent) {
+		// Don't trigger hotkeys if user is typing in an input
+		if (e.target instanceof HTMLInputElement) return;
+
+		// Tool selection
+		switch (e.key.toLowerCase()) {
+			case 'p': selectedTool.set('pen'); break;
+			case 'e': selectedTool.set('eraser'); break;
+			case 'l': selectedTool.set('line'); break;
+			case 'o': selectedTool.set('ellipse'); break;
+			case 'f': selectedTool.set('fill'); break;
+			case 't': selectedTool.set('text'); break;
+			case 's': selectedTool.set('smiley'); break;
+		}
+
+		// File commands
+		if (e.ctrlKey) {
+			switch (e.key.toLowerCase()) {
+				case 'n':
+					e.preventDefault();
+					documentStore.addDocument();
+					break;
+				case 'o':
+					e.preventDefault();
+					window.dispatchEvent(new CustomEvent('app-open-file'));
+					break;
+				case 's':
+					e.preventDefault();
+					window.dispatchEvent(new CustomEvent('app-save-file'));
+					break;
+			}
+		}
+	}
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 {#if $isAboutModalOpen}
 	<AboutModal />
@@ -14,8 +52,13 @@
 <div class="app-container">
   <Ribbon />
   <div class="main-content">
-    <Toolbar />
-    <Workspace />
+		{#if $toolbarPosition === 'left'}
+			<Toolbar />
+			<Workspace />
+		{:else}
+			<Workspace />
+			<Toolbar />
+		{/if}
   </div>
   <StatusBar />
 </div>

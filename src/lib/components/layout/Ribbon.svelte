@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Dropdown from '../ui/Dropdown.svelte';
 	import { documentStore } from '../../stores/documentStore';
-	import { isAboutModalOpen } from '../../stores/uiStore';
+	import { isAboutModalOpen, toolbarPosition } from '../../stores/uiStore';
 	import { BROWSER } from 'esm-env';
 
 	let fileInput: HTMLInputElement;
@@ -39,18 +39,45 @@
 		documentStore.setActiveDocumentSaved();
 	}
 
+	function toggleToolbar() {
+		toolbarPosition.update(pos => pos === 'left' ? 'right' : 'left');
+	}
+
+	$effect(() => {
+		if (!BROWSER) return;
+		
+		const handleOpen = () => openFile();
+		const handleSave = () => {
+			// We only trigger save if the document is dirty, just like the button
+			if(activeDoc?.isDirty) {
+				saveAs();
+			}
+		}
+
+		window.addEventListener('app-open-file', handleOpen);
+		window.addEventListener('app-save-file', handleSave);
+
+		return () => {
+			window.removeEventListener('app-open-file', handleOpen);
+			window.removeEventListener('app-save-file', handleSave);
+		}
+	});
+
 </script>
 
 <div class="ribbon-container">
 	<div class="menu">
 		<Dropdown label="File">
-			<button class="dropdown-item" onclick={() => documentStore.addDocument()}>New</button>
-			<button class="dropdown-item" onclick={openFile}>Open...</button>
-			<button class="dropdown-item" onclick={saveAs} disabled={!activeDoc?.isDirty}>Save As...</button>
+			<button class="dropdown-item" onclick={() => documentStore.addDocument()}>New <span class="hint">(Ctrl+N)</span></button>
+			<button class="dropdown-item" onclick={openFile}>Open... <span class="hint">(Ctrl+O)</span></button>
+			<button class="dropdown-item" onclick={saveAs} disabled={!activeDoc?.isDirty}>Save As... <span class="hint">(Ctrl+S)</span></button>
 		</Dropdown>
 		<Dropdown label="Edit">
 			<button class="dropdown-item" disabled>Undo</button>
 			<button class="dropdown-item" disabled>Redo</button>
+		</Dropdown>
+		<Dropdown label="View">
+			<button class="dropdown-item" onclick={toggleToolbar}>Toggle Toolbar</button>
 		</Dropdown>
 		<Dropdown label="Help">
 			<button class="dropdown-item" onclick={() => isAboutModalOpen.set(true)}>About</button>
@@ -74,6 +101,12 @@
 	.menu {
 		display: flex;
 		gap: 4px;
+	}
+
+	.hint {
+		color: var(--color-text-secondary);
+		float: right;
+		margin-left: 24px;
 	}
 
 	:global(.dropdown-item) {

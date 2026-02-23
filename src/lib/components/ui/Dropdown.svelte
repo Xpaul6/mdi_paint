@@ -41,5 +41,4 @@
 		border-radius: 4px;
 		padding: 4px 0;
 	}
-	/* We will style the slotted content from the parent */
 </style>

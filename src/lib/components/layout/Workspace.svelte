@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { documentStore } from '../../stores/documentStore';
+	import { zoomLevel } from '../../stores/viewStore';
 	import Canvas from '../Canvas.svelte';
 	import Tab from '../ui/Tab.svelte';
 	import { BROWSER } from 'esm-env';
@@ -33,10 +34,12 @@
 		{/each}
 	</div>
 
-	<div class="canvas-wrapper">
-		{#if activeDoc}
-			<Canvas document={activeDoc} />
-		{/if}
+	<div class="workspace-area">
+		<div class="zoom-container" style="transform: scale({$zoomLevel});">
+			{#if activeDoc}
+				<Canvas document={activeDoc} />
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -55,10 +58,17 @@
 		border-bottom: 1px solid var(--color-border);
 		overflow-x: auto;
 	}
-	.canvas-wrapper {
+	.workspace-area {
 		flex-grow: 1;
 		background-color: var(--color-bg-deep);
 		padding: 10px;
 		min-height: 0; /* Important for flex-grow in a flex column */
+		overflow: auto;
+	}
+	.zoom-container {
+		transform-origin: top left;
+		width: 100%;
+		height: 100%;
 	}
 </style>
+
