@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Document } from '../stores/documentStore';
-	import { selectedTool, brushColor, brushSize } from '../stores/toolStore';
+	import { selectedTool, brushColor, brushSize, type Tool } from '../stores/toolStore';
 	import { cursorPosition } from '../stores/uiStore';
 	import { BROWSER } from 'esm-env';
 	import { documentStore } from '../stores/documentStore';
@@ -8,6 +8,19 @@
 	import { tick } from 'svelte';
 
 	let { document }: { document: Document } = $props();
+
+	// Cursor mapping 
+	const toolCursors: Record<Tool, string> = {
+		pen: 'crosshair',
+		eraser: 'crosshair',
+		line: 'crosshair',
+		ellipse: 'crosshair',
+		fill: 'copy',
+		text: 'text',
+		smiley: 'pointer'
+	};
+
+	let cursorStyle = $derived(toolCursors[$selectedTool] ?? 'default');
 
 	// Canvas elements and contexts
 	let canvasElement: HTMLCanvasElement;
@@ -31,7 +44,7 @@
 	let textInputY = $state(0);
 	let textInputValue = $state('');
 
-	// --- Refactored Tool Handlers ---
+	// Tool Handlers
 	const toolHandlers = {
 		pen: {
 			onPointerDown: (x: number, y: number) => { [lastX, lastY] = [x, y]; },
@@ -110,7 +123,7 @@
 		}
 	};
 
-	// --- Canvas Setup and Lifecycle ---
+	// Canvas Setup and Lifecycle
 	function handleResize() {
 		if (!canvasElement || !context || !previewCanvasElement) return;
 		const parent = canvasElement.parentElement;
@@ -155,6 +168,7 @@
 		}
 	});
 
+	// Main Pointer Event Handlers
 	function handlePointerDown(e: PointerEvent) {
 		if (!context) return;
 		const { x, y } = getCoords(e);
@@ -197,7 +211,7 @@
 		};
 	}
 
-	// --- Drawing Implementations ---
+	// Drawing Implementations
 	function drawPen(x: number, y: number, isEraser = false) {
 		if (!context) return;
 		context.beginPath();
@@ -333,7 +347,7 @@
 
 <svelte:window on:resize={handleResize} />
 
-<div class="canvas-wrapper" style="cursor: {$selectedTool === 'smiley' ? 'pointer' : $selectedTool === 'text' ? 'text' : $selectedTool === 'fill' ? 'copy' : ($selectedTool === 'line' || $selectedTool === 'ellipse' ? 'crosshair' : 'default')}">
+<div class="canvas-wrapper" style="cursor: {cursorStyle}">
 	{#if isTextToolActive}
 		<input
 			type="text"

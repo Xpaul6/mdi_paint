@@ -32,10 +32,8 @@
 				return;
 			}
 
-			// Validate that it's a real image before adding it to the store
 			const img = new Image();
 			img.onload = () => {
-				// It's a valid image, now add it.
 				documentStore.addDocument(dataUrl, file.name);
 			};
 			img.onerror = () => {

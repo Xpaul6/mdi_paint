@@ -9,7 +9,8 @@
   main={`
   <p>
     A web-based image editor inspired by classic MSPaint.<br />
-    Powered by Svelte 5 by Pavel Kholkin 2026
+    Powered by Svelte 5<br />
+    By Pavel Kholkin 2026
   </p>
   `}
 />

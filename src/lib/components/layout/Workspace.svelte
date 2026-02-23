@@ -49,7 +49,7 @@
 		background-color: var(--color-bg-deep);
 		display: flex;
 		flex-direction: column;
-		overflow: hidden; /* contain canvas wrapper */
+		overflow: hidden;
 	}
 	.tabs-bar {
 		display: flex;
@@ -62,7 +62,7 @@
 		flex-grow: 1;
 		background-color: var(--color-bg-deep);
 		padding: 10px;
-		min-height: 0; /* Important for flex-grow in a flex column */
+		min-height: 0;
 		overflow: auto;
 	}
 	.zoom-container {
