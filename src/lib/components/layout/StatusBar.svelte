@@ -65,4 +65,8 @@
 	.center button:hover {
 		background-color: rgba(255, 255, 255, 0.2);
 	}
+
+  .right {
+    min-width: 180px;
+  }
 </style>

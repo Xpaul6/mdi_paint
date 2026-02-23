@@ -8,11 +8,8 @@
   header={'About MDI Paint'}
   main={`
   <p>
-    A web-based image editor inspired by classic MDI applications.
-  </p>
-  <p>
-    Version: 0.1.0 (In Development)<br />
-    Framework: Svelte
+    A web-based image editor inspired by classic MSPaint.<br />
+    Powered by Svelte 5 by Pavel Kholkin 2026
   </p>
   `}
 />

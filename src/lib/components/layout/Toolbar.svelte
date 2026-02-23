@@ -1,5 +1,11 @@
 <script lang="ts">
 	import { selectedTool, type Tool, brushColor, brushSize } from '../../stores/toolStore';
+  import penIcon from '../../../assets/pen.png';
+  import eraserIcon from '../../../assets/eraser.png';
+  import lineIcon from '../../../assets/line.png';
+  import ellipseIcon from '../../../assets/ellipse.png';
+  import fillIcon from '../../../assets/fill.png';
+  import smileIcon from '../../../assets/happiness.png';
 
 	function selectTool(tool: Tool) {
 		selectedTool.set(tool);
@@ -14,7 +20,7 @@
 			on:click={() => selectTool('pen')}
 			title="Pen"
 		>
-			P
+      <img src={penIcon} alt="P" class="icon">
 		</button>
 		<button
 			class="tool-button"
@@ -22,7 +28,7 @@
 			on:click={() => selectTool('eraser')}
 			title="Eraser"
 		>
-			E
+      <img src={eraserIcon} alt="E" class="icon">
 		</button>
 		<button
 			class="tool-button"
@@ -30,7 +36,7 @@
 			on:click={() => selectTool('line')}
 			title="Line"
 		>
-			L
+      <img src={lineIcon} alt="L" class="icon">
 		</button>
 		<button
 			class="tool-button"
@@ -38,7 +44,7 @@
 			on:click={() => selectTool('ellipse')}
 			title="Ellipse"
 		>
-			El
+      <img src={ellipseIcon} alt="El" class="icon">
 		</button>
 		<button
 			class="tool-button"
@@ -46,7 +52,7 @@
 			on:click={() => selectTool('fill')}
 			title="Fill"
 		>
-			F
+      <img src={fillIcon} alt="F" class="icon">
 		</button>
 		<button
 			class="tool-button"
@@ -62,7 +68,7 @@
 			on:click={() => selectTool('smiley')}
 			title="Smiley"
 		>
-	    :)	
+      <img src={smileIcon} alt=":)" class="icon">
 		</button>
 	</div>
 	<div class="settings-group">
@@ -158,4 +164,8 @@
 		color: var(--color-text-primary);
 		font-size: 14px;
 	}
+
+  .icon {
+    width: 100%;
+  }
 </style>
