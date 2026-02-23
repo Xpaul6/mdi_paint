@@ -9,44 +9,125 @@
 
 	let { document }: { document: Document } = $props();
 
+	// Canvas elements and contexts
 	let canvasElement: HTMLCanvasElement;
 	let previewCanvasElement: HTMLCanvasElement;
 	let context: CanvasRenderingContext2D | null = $state(null);
 	let previewContext: CanvasRenderingContext2D | null = $state(null);
-	let textInputElement: HTMLInputElement;
-
+	
+	// General state
 	let isDrawing = $state(false);
+
+	// Tool-specific state
 	let lastX = $state(0);
 	let lastY = $state(0);
 	let startX = $state(0);
 	let startY = $state(0);
 
+	// Text tool state
+	let textInputElement: HTMLInputElement;
 	let isTextToolActive = $state(false);
 	let textInputX = $state(0);
 	let textInputY = $state(0);
 	let textInputValue = $state('');
 
+	// --- Refactored Tool Handlers ---
+	const toolHandlers = {
+		pen: {
+			onPointerDown: (x: number, y: number) => { [lastX, lastY] = [x, y]; },
+			onPointerMove: (x: number, y: number) => drawPen(x, y),
+			onPointerUp: () => {}
+		},
+		eraser: {
+			onPointerDown: (x: number, y: number) => { [lastX, lastY] = [x, y]; },
+			onPointerMove: (x: number, y: number) => drawPen(x, y, true),
+			onPointerUp: () => {}
+		},
+		line: {
+			onPointerDown: (x: number, y: number) => { [startX, startY] = [x, y]; },
+			onPointerMove: (x: number, y: number) => drawLinePreview(x, y),
+			onPointerUp: (x: number, y: number) => {
+				if (!context || !previewContext) return;
+				previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
+				context.globalCompositeOperation = 'source-over';
+				context.strokeStyle = $brushColor;
+				context.lineWidth = $brushSize;
+				context.lineCap = 'round';
+				context.lineJoin = 'round';
+				context.beginPath();
+				context.moveTo(startX, startY);
+				context.lineTo(x, y);
+				context.stroke();
+			}
+		},
+		ellipse: {
+			onPointerDown: (x: number, y: number) => { [startX, startY] = [x, y]; },
+			onPointerMove: (x: number, y: number) => drawEllipsePreview(x, y),
+			onPointerUp: (x: number, y: number) => {
+				if (!context || !previewContext) return;
+				previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
+				context.globalCompositeOperation = 'source-over';
+				context.strokeStyle = $brushColor;
+				context.lineWidth = $brushSize;
+				context.lineCap = 'round';
+				context.lineJoin = 'round';
+				context.beginPath();
+				const radiusX = Math.abs(x - startX) / 2;
+				const radiusY = Math.abs(y - startY) / 2;
+				const centerX = startX + (x - startX) / 2;
+				const centerY = startY + (y - startY) / 2;
+				context.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+				context.stroke();
+			}
+		},
+		fill: {
+			onPointerDown: (x: number, y: number) => {
+				floodFill(x, y);
+				documentStore.updateActiveDocumentData(canvasElement.toDataURL('image/png'));
+			},
+			onPointerMove: () => {},
+			onPointerUp: () => {}
+		},
+		smiley: {
+			onPointerDown: (x: number, y: number) => {
+				drawSmiley(x, y);
+				documentStore.updateActiveDocumentData(canvasElement.toDataURL('image/png'));
+			},
+			onPointerMove: () => {},
+			onPointerUp: () => {}
+		},
+		text: {
+			onPointerDown: async (x: number, y: number) => {
+				if (isTextToolActive) await commitText();
+				isTextToolActive = true;
+				textInputX = x;
+				textInputY = y;
+				await tick();
+				textInputElement?.focus();
+			},
+			onPointerMove: () => {},
+			onPointerUp: () => {}
+		}
+	};
+
+	// --- Canvas Setup and Lifecycle ---
 	function handleResize() {
 		if (!canvasElement || !context || !previewCanvasElement) return;
-
 		const parent = canvasElement.parentElement;
 		if (!parent) return;
 
-		// Preserve content by drawing it to a temporary canvas
 		const tempCanvas = window.document.createElement('canvas');
 		tempCanvas.width = canvasElement.width;
 		tempCanvas.height = canvasElement.height;
 		const tempCtx = tempCanvas.getContext('2d');
 		tempCtx?.drawImage(canvasElement, 0, 0);
 
-		// Resize the canvases
 		const { clientWidth, clientHeight } = parent;
 		canvasElement.width = clientWidth;
 		canvasElement.height = clientHeight;
 		previewCanvasElement.width = clientWidth;
 		previewCanvasElement.height = clientHeight;
 
-		// Restore the content
 		context.drawImage(tempCanvas, 0, 0);
 	}
 
@@ -54,8 +135,6 @@
 		if (canvasElement && previewCanvasElement && BROWSER) {
 			context = canvasElement.getContext('2d', { willReadFrequently: true });
 			previewContext = previewCanvasElement.getContext('2d');
-
-			// Set initial size
 			const parent = canvasElement.parentElement;
 			if (parent) {
 				canvasElement.width = parent.clientWidth;
@@ -63,23 +142,102 @@
 				previewCanvasElement.width = parent.clientWidth;
 				previewCanvasElement.height = parent.clientHeight;
 			}
-
-			// Draw initial content
 			if (context) {
 				if (document.data) {
 					const img = new Image();
-					img.onload = () => {
-						context?.drawImage(img, 0, 0);
-					};
+					img.onload = () => context?.drawImage(img, 0, 0);
 					img.src = document.data;
 				} else {
-					// For new, blank documents
 					context.fillStyle = '#ffffff';
 					context.fillRect(0, 0, canvasElement.width, canvasElement.height);
 				}
 			}
 		}
 	});
+
+	function handlePointerDown(e: PointerEvent) {
+		if (!context) return;
+		const { x, y } = getCoords(e);
+		const tool = $selectedTool;
+		
+		const handler = toolHandlers[tool];
+		if (handler) {
+			if (tool !== 'text' && tool !== 'fill' && tool !== 'smiley') {
+				isDrawing = true;
+			}
+			handler.onPointerDown(x, y);
+		}
+	}
+
+	function handlePointerMove(e: PointerEvent) {
+		const { x, y } = getCoords(e);
+		cursorPosition.set({ x, y });
+		if (!isDrawing) return;
+
+		const handler = toolHandlers[$selectedTool];
+		handler?.onPointerMove(x, y);
+	}
+
+	function stopDrawing(e?: PointerEvent) {
+		if (!isDrawing) return;
+		isDrawing = false;
+		
+		const { x, y } = getCoords(e || new PointerEvent('pointerup'));
+		const handler = toolHandlers[$selectedTool];
+		handler?.onPointerUp(x, y);
+
+		documentStore.updateActiveDocumentData(canvasElement.toDataURL('image/png'));
+	}
+
+	function getCoords(e: PointerEvent) {
+		const rect = canvasElement.getBoundingClientRect();
+		return {
+			x: Math.round((e.clientX - rect.left) / $zoomLevel),
+			y: Math.round((e.clientY - rect.top) / $zoomLevel)
+		};
+	}
+
+	// --- Drawing Implementations ---
+	function drawPen(x: number, y: number, isEraser = false) {
+		if (!context) return;
+		context.beginPath();
+		context.moveTo(lastX, lastY);
+		context.lineTo(x, y);
+		context.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+		context.strokeStyle = $brushColor;
+		context.lineWidth = $brushSize;
+		context.lineCap = 'round';
+		context.lineJoin = 'round';
+		context.stroke();
+		[lastX, lastY] = [x, y];
+	}
+
+	function drawLinePreview(x: number, y: number) {
+		if (!previewContext) return;
+		previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
+		previewContext.beginPath();
+		previewContext.moveTo(startX, startY);
+		previewContext.lineTo(x, y);
+		previewContext.strokeStyle = $brushColor;
+		previewContext.lineWidth = $brushSize;
+		previewContext.lineCap = 'round';
+		previewContext.lineJoin = 'round';
+		previewContext.stroke();
+	}
+
+	function drawEllipsePreview(x: number, y: number) {
+		if (!previewContext) return;
+		previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
+		previewContext.beginPath();
+		const radiusX = Math.abs(x - startX) / 2;
+		const radiusY = Math.abs(y - startY) / 2;
+		const centerX = startX + (x - startX) / 2;
+		const centerY = startY + (y - startY) / 2;
+		previewContext.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+		previewContext.strokeStyle = $brushColor;
+		previewContext.lineWidth = $brushSize;
+		previewContext.stroke();
+	}
 
 	function hexToRgb(hex: string): [number, number, number] {
 		const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -146,32 +304,18 @@
 		context.strokeStyle = $brushColor;
 		context.lineWidth = Math.max(1, $brushSize / 4);
 	
-		// Head
 		context.beginPath();
-		context.arc(x, y, radius, 0, Math.PI * 2, true); // Outer circle
-		
-		// Mouth
+		context.arc(x, y, radius, 0, Math.PI * 2, true); 
 		context.moveTo(x + radius * 0.7, y + radius * 0.2);
-		context.arc(x, y + radius * 0.2, radius * 0.7, 0, Math.PI, false); // Mouth (clockwise)
-		
-		// Eyes
+		context.arc(x, y + radius * 0.2, radius * 0.7, 0, Math.PI, false);
 		context.moveTo(x - radius * 0.25 + radius * 0.1, y - radius * 0.3);
-		context.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.1, 0, Math.PI * 2, true); // Left eye
+		context.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.1, 0, Math.PI * 2, true);
 		context.moveTo(x + radius * 0.35 + radius * 0.1, y - radius * 0.3);
-		context.arc(x + radius * 0.3, y - radius * 0.3, radius * 0.1, 0, Math.PI * 2, true); // Right eye
-		
+		context.arc(x + radius * 0.3, y - radius * 0.3, radius * 0.1, 0, Math.PI * 2, true);
 		context.stroke();
 	}
 
-	function getCoords(e: PointerEvent) {
-		const rect = canvasElement.getBoundingClientRect();
-		return {
-			x: Math.round((e.clientX - rect.left) / $zoomLevel),
-			y: Math.round((e.clientY - rect.top) / $zoomLevel)
-		};
-	}
-
-	function commitText() {
+	async function commitText() {
 		if (!context || !textInputValue) return;
 		context.font = `${$brushSize * 2}px sans-serif`;
 		context.fillStyle = $brushColor;
@@ -181,155 +325,13 @@
 
 		isTextToolActive = false;
 		textInputValue = '';
+		await tick();
 		documentStore.updateActiveDocumentData(canvasElement.toDataURL('image/png'));
 	}
 
-	async function handlePointerDown(e: PointerEvent) {
-		if (!context) return;
-		const { x, y } = getCoords(e);
-		const tool = $selectedTool;
-
-		if (isTextToolActive) {
-			commitText();
-		}
-
-		if (tool === 'smiley') {
-			drawSmiley(x, y);
-			documentStore.updateActiveDocumentData(canvasElement.toDataURL('image/png'));
-			return;
-		}
-
-		if (tool === 'text') {
-			isTextToolActive = true;
-			textInputX = x;
-			textInputY = y;
-			await tick(); // Wait for the DOM to update
-			textInputElement?.focus();
-			return;
-		}
-
-		if (tool === 'fill') {
-			floodFill(x, y);
-			documentStore.updateActiveDocumentData(canvasElement.toDataURL('image/png'));
-			return;
-		}
-
-		isDrawing = true;
-
-		if (tool === 'line' || tool === 'ellipse') {
-			startX = x;
-			startY = y;
-		} else {
-			[lastX, lastY] = [x, y];
-		}
-	}
-
-	function drawPen(x: number, y: number) {
-		if (!context) return;
-		context.beginPath();
-		context.moveTo(lastX, lastY);
-		context.lineTo(x, y);
-
-		const tool = $selectedTool;
-		if (tool === 'eraser') {
-			context.globalCompositeOperation = 'destination-out';
-		} else {
-			context.globalCompositeOperation = 'source-over';
-			context.strokeStyle = $brushColor;
-		}
-
-		context.lineWidth = $brushSize;
-		context.lineCap = 'round';
-		context.lineJoin = 'round';
-		context.stroke();
-		[lastX, lastY] = [x, y];
-	}
-
-	function drawLinePreview(x: number, y: number) {
-		if (!previewContext) return;
-		previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
-		previewContext.beginPath();
-		previewContext.moveTo(startX, startY);
-		previewContext.lineTo(x, y);
-		previewContext.strokeStyle = $brushColor;
-		previewContext.lineWidth = $brushSize;
-		previewContext.lineCap = 'round';
-		previewContext.lineJoin = 'round';
-		previewContext.stroke();
-	}
-
-	function drawEllipsePreview(x: number, y: number) {
-		if (!previewContext) return;
-		previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
-		previewContext.beginPath();
-		const radiusX = Math.abs(x - startX) / 2;
-		const radiusY = Math.abs(y - startY) / 2;
-		const centerX = startX + (x - startX) / 2;
-		const centerY = startY + (y - startY) / 2;
-		previewContext.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-		previewContext.strokeStyle = $brushColor;
-		previewContext.lineWidth = $brushSize;
-		previewContext.stroke();
-	}
-
-
-	function handlePointerMove(e: PointerEvent) {
-		const { x, y } = getCoords(e);
-		cursorPosition.set({ x, y });
-		if (!isDrawing) return;
-
-		const tool = $selectedTool;
-		if (tool === 'pen' || tool === 'eraser') {
-			drawPen(x, y);
-		} else if (tool === 'line') {
-			drawLinePreview(x,y);
-		} else if (tool === 'ellipse') {
-			drawEllipsePreview(x, y);
-		}
-	}
-
-	function handlePointerLeave() {
-		stopDrawing();
-		cursorPosition.set({ x: 0, y: 0 });
-	}
-
-	function stopDrawing(e?: PointerEvent) {
-		if (!isDrawing) return;
-		isDrawing = false;
-		const tool = $selectedTool;
-
-		if (e && context && previewContext) {
-			const { x, y } = getCoords(e);
-			previewContext.clearRect(0, 0, previewCanvasElement.width, previewCanvasElement.height);
-			context.globalCompositeOperation = 'source-over';
-			context.strokeStyle = $brushColor;
-			context.lineWidth = $brushSize;
-			context.lineCap = 'round';
-			context.lineJoin = 'round';
-
-			if (tool === 'line') {
-				context.beginPath();
-				context.moveTo(startX, startY);
-				context.lineTo(x, y);
-				context.stroke();
-			} else if (tool === 'ellipse') {
-				context.beginPath();
-				const radiusX = Math.abs(x - startX) / 2;
-				const radiusY = Math.abs(y - startY) / 2;
-				const centerX = startX + (x - startX) / 2;
-				const centerY = startY + (y - startY) / 2;
-				context.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-				context.stroke();
-			}
-		}
-
-		// Update document state after drawing is complete
-		const dataUrl = canvasElement.toDataURL('image/png');
-		documentStore.updateActiveDocumentData(dataUrl);
-	}
 </script>
 
-<svelte:window onresize={handleResize} />
+<svelte:window on:resize={handleResize} />
 
 <div class="canvas-wrapper" style="cursor: {$selectedTool === 'smiley' ? 'pointer' : $selectedTool === 'text' ? 'text' : $selectedTool === 'fill' ? 'copy' : ($selectedTool === 'line' || $selectedTool === 'ellipse' ? 'crosshair' : 'default')}">
 	{#if isTextToolActive}
@@ -349,11 +351,10 @@
 		onpointerdown={handlePointerDown}
 		onpointermove={handlePointerMove}
 		onpointerup={stopDrawing}
-		onpointerleave={handlePointerLeave}
+		onpointerleave={stopDrawing}
 	></canvas>
 	<canvas class="preview-canvas" bind:this={previewCanvasElement}></canvas>
 </div>
-
 
 <style>
 	.canvas-wrapper {
@@ -361,18 +362,15 @@
 		height: 100%;
 		position: relative;
 	}
-
 	.main-canvas, .preview-canvas {
 		display: block;
 		position: absolute;
 		top: 0;
 		left: 0;
 	}
-	
 	.preview-canvas {
 		pointer-events: none;
 	}
-
 	.text-input {
 		position: absolute;
 		background: transparent;

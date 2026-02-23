@@ -77,7 +77,7 @@ function createDocumentStore() {
 
 			const newDocuments = state.documents.filter((doc) => doc.id !== id);
 
-			// If the currently active document is closed, we might need to add a new default one
+			// Creating empty document if all others were closed
 			if (newDocuments.length === 0) {
 				const defaultDocId = crypto.randomUUID();
 				return {

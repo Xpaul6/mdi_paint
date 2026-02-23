@@ -6,7 +6,7 @@
 
 	let fileInput: HTMLInputElement;
 
-  let activeDoc = $derived($documentStore.documents.find(d => d.id === $documentStore.activeDocumentId));
+	let activeDoc = $derived($documentStore.documents.find(d => d.id === $documentStore.activeDocumentId));
 
 	function openFile() {
 		fileInput.click();
@@ -14,17 +14,38 @@
 
 	function handleFileOpen(e: Event) {
 		const target = e.target as HTMLInputElement;
-		if (target.files && target.files[0]) {
-			const file = target.files[0];
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				if (event.target?.result) {
-					documentStore.addDocument(event.target.result as string, file.name);
-				}
-			};
-			reader.readAsDataURL(file);
+		if (!target.files || !target.files[0]) return;
+
+		const file = target.files[0];
+		const reader = new FileReader();
+
+		reader.onerror = () => {
+			if (BROWSER) alert(`Error reading file: ${reader.error}`);
 			target.value = '';
-		}
+		};
+
+		reader.onload = (event) => {
+			const dataUrl = event.target?.result as string;
+			if (!dataUrl) {
+				if (BROWSER) alert('Could not read file data.');
+				target.value = '';
+				return;
+			}
+
+			// Validate that it's a real image before adding it to the store
+			const img = new Image();
+			img.onload = () => {
+				// It's a valid image, now add it.
+				documentStore.addDocument(dataUrl, file.name);
+			};
+			img.onerror = () => {
+				if (BROWSER) alert(`'${file.name}' is not a valid image file or could not be loaded.`);
+			};
+			img.src = dataUrl;
+		};
+
+		reader.readAsDataURL(file);
+		target.value = '';
 	}
 
 	function saveAs() {
@@ -48,8 +69,7 @@
 		
 		const handleOpen = () => openFile();
 		const handleSave = () => {
-			// We only trigger save if the document is dirty, just like the button
-			if(activeDoc?.isDirty) {
+			if (activeDoc?.isDirty) {
 				saveAs();
 			}
 		}
